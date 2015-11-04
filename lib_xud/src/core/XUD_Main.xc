@@ -10,7 +10,6 @@
 #include <platform.h>
 #include <xs2_su_registers.h>
 #include "xud.h"                 /* External user include file */
-#include "XUD_UIFM_Defines.h"
 #include "XUD_USB_Defines.h"
 #include "XUD_USBTile_Support.h"
 #include "XUD_Support.h"

@@ -2,7 +2,6 @@
 #include <xs2_su_registers.h>
 #include <print.h>
 #include <platform.h>
-#include "XUD_UIFM_Defines.h"
 #include "XUD_USB_Defines.h"
 #include "XUD_Support.h"
 #include "xud.h"
