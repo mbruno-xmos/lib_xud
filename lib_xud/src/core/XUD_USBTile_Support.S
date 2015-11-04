@@ -6,13 +6,14 @@
 #include <xs2a_registers.h>
 
 .text
-.globl XUD_SetUSBPortMux, "f{ui}(ui)"
-.type  XUD_SetUSBPortMux, @function
-.cc_top XUD_SetUSBPortMux.function
+.globl XUD_EnableUsbPortMux, "f{ui}()"
+.type  XUD_EnableUsbPortMux, @function
+.cc_top XUD_EnableUsbPortMux.function
 .align    4
-// void XUD_SetUSBPortMux (unsigned mode);
-XUD_SetUSBPortMux:
+// void XUD_EnableUsbPortMux (unsigned mode);
+XUD_EnableUsbPortMux:
   ldc       r1, XS1_PS_XCORE_CTRL0
+  ldc       r0, 2
   set       ps[r1], r0
 
   //Sanity check, read back and check
@@ -21,15 +22,42 @@ XUD_SetUSBPortMux:
   //ecallf    r1
   retsp     0
 
-.size XUD_SetUSBPortMux, .-XUD_SetUSBPortMux
-.cc_bottom XUD_SetUSBPortMux.function
-.globl XUD_SetUSBPortMux.nstackwords
-.globl XUD_SetUSBPortMux.maxchanends
-.globl XUD_SetUSBPortMux.maxtimers
-.globl XUD_SetUSBPortMux.maxcores
-.set XUD_SetUSBPortMux.nstackwords, 0
-.set XUD_SetUSBPortMux.maxchanends, 0
-.set XUD_SetUSBPortMux.maxtimers, 0
-.set XUD_SetUSBPortMux.maxcores, 1
-.set XUD_SetUSBPortMux.locnochandec, 1
+.size XUD_EnableUsbPortMux, .-XUD_EnableUsbPortMux
+.cc_bottom XUD_EnableUsbPortMux.function
+.globl XUD_EnableUsbPortMux.nstackwords
+.globl XUD_EnableUsbPortMux.maxchanends
+.globl XUD_EnableUsbPortMux.maxtimers
+.globl XUD_EnableUsbPortMux.maxcores
+.set XUD_EnableUsbPortMux.nstackwords, 0
+.set XUD_EnableUsbPortMux.maxchanends, 0
+.set XUD_EnableUsbPortMux.maxtimers, 0
+.set XUD_EnableUsbPortMux.maxcores, 1
+.set XUD_EnableUsbPortMux.locnochandec, 1
 
+.globl XUD_DisableUsbPortMux, "f{ui}()"
+.type  XUD_DisableUsbPortMux, @function
+.cc_top XUD_DisableUsbPortMux.function
+.align    4
+// void XUD_DisableUsbPortMux (unsigned mode);
+XUD_DisableUsbPortMux:
+  ldc       r1, XS1_PS_XCORE_CTRL0
+  ldc       r0, 0
+  set       ps[r1], r0
+
+  //Sanity check, read back and check
+  //get	    r1, ps[r1]
+  //eq        r1, r0, r1
+  //ecallf    r1
+  retsp     0
+
+.size XUD_DisableUsbPortMux, .-XUD_DisableUsbPortMux
+.cc_bottom XUD_DisableUsbPortMux.function
+.globl XUD_DisableUsbPortMux.nstackwords
+.globl XUD_DisableUsbPortMux.maxchanends
+.globl XUD_DisableUsbPortMux.maxtimers
+.globl XUD_DisableUsbPortMux.maxcores
+.set XUD_DisableUsbPortMux.nstackwords, 0
+.set XUD_DisableUsbPortMux.maxchanends, 0
+.set XUD_DisableUsbPortMux.maxtimers, 0
+.set XUD_DisableUsbPortMux.maxcores, 1
+.set XUD_DisableUsbPortMux.locnochandec, 1

@@ -16,9 +16,6 @@
 #include "XUD_DeviceAttach.h"
 #include "XUD_PowerSig.h"
 
-extern unsigned get_tile_id(tileref ref);
-
-
 /* Location to store stack pointer (required for interupt handler) */
 unsigned SavedSp;
 
@@ -79,9 +76,6 @@ unsafe
     clock * unsafe rx_usb_clk_ = &rx_usb_clk;
     clock * unsafe tx_usb_clk_ = &tx_usb_clk;
 }
-
-#define reg_write_port null
-#define reg_read_port null
 
 /* TODO pack this to save mem
  * TODO size of this hardcoded in ResetRpStateByAddr_
@@ -319,7 +313,7 @@ unsafe int XUD_Manager_loop(tileref * unsafe usbtile, XUD_chan * unsafe epChans0
         unsigned settings[] = {0};
 
         /* For xCORE-200 enable USB port muxing before enabling phy etc */
-        XUD_UIFM_Enable(UIFM_MODE); //setps(XS1_PS_XCORE_CTRL0, UIFM_MODE);
+        XUD_EnableUsbPortMux(); //setps(XS1_PS_XCORE_CTRL0, UIFM_MODE);
 
         /* Enable the USB clock */
         write_sswitch_reg(get_tile_id(*usbtile), XS1_GLX_CFG_RST_MISC_NUM, ( 1 << XS1_GLX_CFG_USB_CLK_EN_SHIFT));

@@ -4,15 +4,11 @@
   **/
 
 #include <xs1.h>
-#include <print.h>
-
+#include <xs2_su_registers.h>
 #include "xud.h"
 #include "XUD_Support.h"
 #include "XUD_USB_Defines.h"
-#include "XUD_UIFM_Defines.h"
 #include "XUD_USBTile_Support.h"
-
-#include "xs2_su_registers.h"
 
 #if defined(ARCH_S) || defined(ARCH_X200)
 //#include "glx.h"
