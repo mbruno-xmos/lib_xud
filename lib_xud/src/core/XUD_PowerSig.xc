@@ -5,17 +5,35 @@
 
 #include <xs1.h>
 #include <print.h>
+#include <xs1_su.h>
 
 #include "xud.h"
 #include "XUD_Support.h"
+#include "XUD_USBTile_Support.h"
 #include "XUD_USB_Defines.h"
 #include "XUD_UIFM_Defines.h"
-#include "XUD_USBTile_Support.h"
 
-#include "xs2_su_registers.h"
+#define UIFM_FLAGS_RXE           0x1
+#define UIFM_FLAGS_RXA           0x2
+#define UIFM_FLAGS_CRCFAIL       0x4
+#define UIFM_FLAGS_FS_K          0x8
+#define UIFM_FLAGS_FS_J          0x10
+#define UIFM_FLAGS_SE0           0x20
+#define UIFM_FLAGS_NEWTOK        0x40
+#define UIFM_FLAGS_HOSTACK       0x80
+
+
+
+#ifdef ARCH_X200
+#include "my_xs2_su_registers.h"
+#endif
+
+#ifdef ARCH_S
+#include "xa1_registers.h"
+#endif
 
 #if defined(ARCH_S) || defined(ARCH_X200)
-//#include "glx.h"
+#include "glx.h"
 extern unsigned get_tile_id(tileref ref);
 //extern tileref usbtile;
 #endif
@@ -165,12 +183,12 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
      * VERIFY FUNCTIONALITY */
 
     /* Wait for suspend J to make its way through filter */
-    read_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_PHY_CONTROL_REG, before);
+    read_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_PHY_CONTROL_REG, before);
 
     while(1)
     {
         unsigned  x;
-        read_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_PHY_TESTSTATUS_REG, x);
+        read_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_PHY_TESTSTATUS_REG, x);
         x >>= 9;
         x &= 0x3;
         if(x == 1)
@@ -182,7 +200,7 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
     /* Save device address to Glx scratch*/
     {
         char wData[] = {0};
-        read_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_DEVICE_ADDRESS_REG, devAddr);
+        read_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_DEVICE_ADDRESS_REG, devAddr);
         wData[0] = (char) devAddr;
 
         write_periph_reg_8(usbtile, XS1_GLX_PERIPH_SCTH_ID, 0x0, 1, wData);
@@ -193,7 +211,7 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
      * This is a simple counter with check from wrap in this bit, so worst case could be x2 off
      * Counter runs at 32kHz by (31.25uS period). So setting 2 is about 63-125uS
      */
-    write_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_PHY_CONTROL_REG,
+    write_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_PHY_CONTROL_REG,
                                     (1 << XS1_UIFM_PHY_CONTROL_AUTORESUME) |
                                     (0x2 << XS1_UIFM_PHY_CONTROL_SE0FILTVAL_BASE)
                                     | (1 << XS1_UIFM_PHY_CONTROL_FORCESUSPEND)
@@ -218,12 +236,12 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
     {
         unsigned wakeReason = 0;
 
-        read_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_PHY_CONTROL_REG, wakeReason);
+        read_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_PHY_CONTROL_REG, wakeReason);
 
         if(wakeReason & (1<<XS1_UIFM_PHY_CONTROL_RESUMEK))
         {
             /* Unsuspend phy */
-            write_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_PHY_CONTROL_REG,0);
+            write_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_PHY_CONTROL_REG,0);
 
             /* Wait for usb clock */
             p_usb_clk when pinseq(1) :> int _;
@@ -232,18 +250,18 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
             p_usb_clk when pinseq(0) :> int _;
 
             /* Func control reg will be default of 0x4 here term: 0 xcvSel: 0, opmode: 0b01 (non-driving) */
-            write_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_FUNC_CONTROL_REG,
+            write_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_FUNC_CONTROL_REG,
                 (1<<XS1_UIFM_FUNC_CONTROL_XCVRSELECT) |
                 (1<<XS1_UIFM_FUNC_CONTROL_TERMSELECT));
 
             /* Set IFM to decoding linestate.. IFM regs reset when phy suspended */
-            write_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_IFM_CONTROL_REG,
+            write_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_IFM_CONTROL_REG,
                 (1<<XS1_UIFM_IFM_CONTROL_DECODELINESTATE) |
                 (1<< XS1_UIFM_IFM_CONTROL_SOFISTOKEN));
 
             XUD_UIFM_PwrSigFlags();
 
-            write_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_DEVICE_ADDRESS_REG, devAddr);
+            write_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_DEVICE_ADDRESS_REG, devAddr);
 
             /* Wait for end of resume */
             while(1)
@@ -254,7 +272,7 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
                 if(g_curSpeed == XUD_SPEED_HS)
                 {
                     /* Back to high-speed */
-                    write_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_FUNC_CONTROL_REG, 0);
+                    write_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_FUNC_CONTROL_REG, 0);
                 }
                 return 0;
             }
@@ -262,7 +280,7 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
         else if(wakeReason & (1<<XS1_UIFM_PHY_CONTROL_RESUMESE0))
         {
             /* RESET! -  Unsuspend phy */
-            write_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_PHY_CONTROL_REG, 0);
+            write_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_PHY_CONTROL_REG, 0);
 
             /* Wait for usb clock */
             p_usb_clk_ when pinseq(1) :> int _;
@@ -271,11 +289,11 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
             p_usb_clk_ when pinseq(0) :> int _;
 
             /* Set IFM to decoding linestate.. IFM regs reset when phy suspended */
-            write_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_IFM_CONTROL_REG,
+            write_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_IFM_CONTROL_REG,
                 (1<<XS1_UIFM_IFM_CONTROL_DECODELINESTATE) |
                 (1<< XS1_UIFM_IFM_CONTROL_SOFISTOKEN));
 
-            write_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_DEVICE_ADDRESS_REG, 0);
+            write_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_DEVICE_ADDRESS_REG, 0);
 
             //XUD_UIFM_PwrSigFlags();
 
@@ -294,7 +312,7 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
     while(1)
     {
         unsigned  x;
-        read_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_PHY_TESTSTATUS_REG, x);
+        read_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_PHY_TESTSTATUS_REG, x);
         x >>= 9;
         x &= 0x3;
         if(x == 1)
@@ -305,7 +323,7 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
 
     while(1)
     {
-        read_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_PHY_TESTSTATUS_REG, rdata);
+        read_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_PHY_TESTSTATUS_REG, rdata);
         rdata >>= 9;
         rdata &= 0x3;
 
@@ -314,7 +332,7 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
             /* Resume */
 
             /* Un-suspend phy */
-            write_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_PHY_CONTROL_REG, 0);
+            write_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_PHY_CONTROL_REG, 0);
 
             /* Wait for usb clock */
             set_thread_fast_mode_on();
@@ -326,13 +344,13 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
             if(g_curSpeed == XUD_SPEED_HS)
             {
                 /* Back to high-speed */
-                write_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_FUNC_CONTROL_REG, 0);
+                write_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_FUNC_CONTROL_REG, 0);
             }
 
             /* Wait for end of resume */
             while(1)
             {
-                read_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_PHY_TESTSTATUS_REG, rdata);
+                read_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_PHY_TESTSTATUS_REG, rdata);
                 rdata >>= 9;
                 rdata &= 0x3;
 
@@ -355,7 +373,7 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
             while(1)
             {
                 int count = 0;
-                read_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_PHY_TESTSTATUS_REG, rdata);
+                read_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_PHY_TESTSTATUS_REG, rdata);
                 rdata >>= 9;
                 rdata &= 0x3;
 
@@ -371,7 +389,7 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
                     {
 #endif
                         /* Un-suspend phy */
-                        write_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_PHY_CONTROL_REG, 0);
+                        write_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_PHY_CONTROL_REG, 0);
                         return 1;
 #if 0
                     }
@@ -393,8 +411,8 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
         {
             unsigned x;
 #if defined(ARCH_S) || defined(ARCH_X200)
-            read_periph_word(usbtile,  XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_GLX_PER_UIFM_OTG_FLAGS_NUM, x);
-            if(x&(1<<XS1_UIFM_OTG_FLAGS_SESSVLDB_SHIFT))
+            read_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_SU_PER_UIFM_OTG_FLAGS_NUM, x);
+            if(x&(1<<XS1_SU_UIFM_OTG_FLAGS_SESSVLDB_SHIFT))
 #elif ARCH_L
             x = XUD_UIFM_RegRead(reg_write_port_, reg_read_port_, UIFM_OTG_FLAGS_REG);
             if(x&(1<<UIFM_OTG_FLAGS_SESSVLD_SHIFT))
@@ -408,7 +426,7 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
             {
 
 #if defined(ARCH_S) || defined(ARCH_X200)
-                write_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_GLX_PER_UIFM_FUNC_CONTROL_NUM, 4);
+                write_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_FUNC_CONTROL_REG, 4);
 #else
                 XUD_UIFM_RegWrite(reg_write_port_, UIFM_REG_PHYCON, 0x9);
 #endif
@@ -418,12 +436,12 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
 
         /* Read flags reg... */
 #if defined(ARCH_S) || defined(ARCH_X200)
-        read_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_GLX_PER_UIFM_IFM_FLAGS_NUM, tmp);
+        read_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_IFM_FLAGS_REG, tmp);
 #else
         tmp = XUD_UIFM_RegRead(reg_write_port_, reg_read_port_, UIFM_REG_FLAGS);
 #endif
-        /* Look for SE0 - RESET! */ 
-        if(tmp & XS1_UIFM_IFM_FLAGS_SE0_MASK)
+        /* Look for SE0 - RESET! */
+        if(tmp & UIFM_FLAGS_SE0)
         {
             t :> time;
             select
@@ -440,21 +458,22 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
             }
         }
         /* Look for HS J / FS K - RESUME! */
-        if (tmp & XS1_UIFM_IFM_FLAGS_J_MASK)
+        if (tmp & UIFM_FLAGS_FS_K)
         {
             /* Wait for end of resume (SE0) */
             while(1)
             {
 #if defined(ARCH_S) || defined(ARCH_X200)
-                read_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_GLX_PER_UIFM_IFM_FLAGS_NUM, tmp);
+                read_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_IFM_FLAGS_REG, tmp);
 #else
                 tmp = XUD_UIFM_RegRead(reg_write_port_, reg_read_port_, UIFM_REG_FLAGS);
 #endif
-                if(tmp & XS1_UIFM_IFM_FLAGS_K_MASK) /* Fullspeed J/High-speed K */
+
+                if(tmp & UIFM_FLAGS_FS_J)
                 {
                    break;
                 }
-                if(tmp & XS1_UIFM_IFM_FLAGS_SE0_MASK)
+                if(tmp & UIFM_FLAGS_SE0)
                 {
                     /* Resume detected from suspend: switch back to HS (suspendm high) and continue...*/
                     
@@ -463,7 +482,7 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
                     if(curSpeed == XUD_SPEED_HS)
                     {
 #if defined(ARCH_S) || defined(ARCH_X200)
-                        write_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_GLX_PER_UIFM_FUNC_CONTROL_NUM, 0);
+                        write_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_FUNC_CONTROL_REG, 0);
 #else
                         XUD_UIFM_RegWrite(reg_write_port, UIFM_REG_PHYCON, 0x1);
 #endif
@@ -472,12 +491,12 @@ int XUD_Suspend(tileref usbtile, XUD_PwrConfig pwrConfig,
                     while(1)
                     {
 #if defined(ARCH_S) || defined(ARCH_X200)
-                        read_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_GLX_PER_UIFM_IFM_FLAGS_NUM, tmp);
+                        read_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_IFM_FLAGS_REG, tmp);
 #else
                         tmp = XUD_UIFM_RegRead(reg_write_port, reg_read_port, UIFM_REG_FLAGS);
 #endif
 
-                        if(!(tmp & XS1_UIFM_IFM_FLAGS_SE0_MASK))
+                        if(!(tmp & UIFM_FLAGS_SE0))
                         {
                             return 0;
                         }
@@ -644,7 +663,7 @@ int XUD_Suspend()
             if(rdata1 != 1)
                 break;
 
-            read_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_PHY_TESTSTATUS_REG, rdata2);
+            read_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_PHY_TESTSTATUS_REG, rdata2);
             rdata2 >>= 9;
             rdata2 &= 0x3;
             if(rdata2 == 2)
@@ -653,7 +672,7 @@ int XUD_Suspend()
                     break;
             }
 
-            //read_periph_word(usbtile, XS1_GLX_PER_UIFM_CHANEND_NUM, XS1_UIFM_PHY_CONTROL_REG, rdata3);
+            //read_periph_word(usbtile, XS1_GLX_PERIPH_USB_ID, XS1_UIFM_PHY_CONTROL_REG, rdata3);
             //rdata3 >>= 12;
             //rdata3 &= 0x3;
 
