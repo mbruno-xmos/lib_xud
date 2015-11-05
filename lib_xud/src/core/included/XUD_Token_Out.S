@@ -1,0 +1,121 @@
+#define RXD r0
+#define TXD r2
+
+.align 4
+.skip 0
+Pid_Out:
+    inpw        r10, res[RXD], 8;                  // Read EP Number */
+    shr         r10, r10, 24;                      // Shift off junk */
+
+    in          r4, res[r1];
+    bt          r4, InvalidToken;                  // If VALID_TOKEN not high, ignore token */
+    ldw         r3, r5[r10]                        // Load relevant EP pointer
+    bf          r3, XUD_TokenOut_BufferFull
+    ldw         r1, r3[3]                          // Load buffer from EP structure
+
+CheckEpTypeOut:
+    ldw         r11, r3[5]                         // Load EP type
+    bt          r11, DoOutNonIso                   // ISO endpoint
+
+OutReady:
+    stw         r11, r5[r10]                       // Clear ready straight away - we don't to CRC checking on Iso - 
+                                                   // else we would have to wait for end of packet
+    bl          doRXData
+    clre
+
+InformEP_Iso:                                      // Iso EP - no handshake
+    ldw         r11, r3[1]                         // Load EP chanend
+    out         res[r11], r4                       // Output datalength (words)
+    outt        res[r11], r8                       // Send tail length
+
+    ldc         r6, 0x3334                         // CRC16 init (out) - Needs reseting after an out
+    ldw         r1, sp[STACK_FLAG0_PORT]
+    //ldc        r4, XUD_MAX_NUM_EP_OUT            // This could be shaved if XUD_MAX_NUM_EP's < 12. Now use an LDAW to at 16.
+
+//------------------------------------------------------------------------------------------------
+    ldaw        r10, dp[PidJumpTable]
+                                                   // Original USB Token: | CRC | EP | ADDR | PID | junk
+                                                   // Received token is address and CRC checked.
+                                                   // We receive: | 0000 4-bit EP | 0000 4-bit PID |
+XUD_TokenRx_Pid_:
+    inpw        r11, res[RXD], 8                   // Read 8 bit PID
+    shr         r11, r11, 24                       // Shift off junk
+
+    ldw         r10, r10[r11]                      // Load relevant branch address
+
+BranchOnTokenPid_:
+.xtabranch  Pid_Out, Pid_Sof, Pid_In, Pid_Setup, Pid_Sof_NoChan
+    bau         r10
+
+.align 4
+.skip 0
+DoOutNonIso:
+    bl          doRXData
+    clre
+
+    eq          r1, r6, r11                        // Check for good CRC16
+
+doRXDataReturn_NonIso:
+    bf          r1, NextTokenAfterOut              // Check for bad crc
+    ldc         r11, PIDn_ACK                      // Data CRC good and EP not Iso: Send Ack
+    outpw       res[TXD], r11, 8
+    syncr       res[TXD]
+
+StoreTailDataOut:
+    //shr        r8, r8, 3                         // r8: number of tail bits, convert to bytes
+                                                   // This is now done on the other side
+    ldc         r11, 0
+    stw         r11, r5[r10]                       // Clear ready
+    ldw         r11, r3[1]                         // Load EP chanend
+
+    out         res[r11], r4                       // Output datalength (words)
+    outt        res[r11], r8                       // Send tail length
+
+    bu          NextTokenAfterOut
+
+// Various Error handling functions -------------------------------------------------------------------
+Err_RxErr:                                         // RxError signal high during data packet receive:
+    clrsr      3
+    clre
+    ldw         r10, sp[15]                        // Read out data from RxE port
+    in          r11, res[r10]
+    eeu         res[r10]
+    ldw         r10, sp[10]
+    in          r11, res[r10]                      // Wait for rxa low and ignore packet (let transaction timout)
+    setsr       3                                  // Re-enable thread interrupts
+    bu          NextToken
+
+Err_EndpointProblem:
+                                                   // TODO: Endpoint in trouble (send STALL) or disabled (ignore?)...
+    bu          NextToken
+
+Err_BadPidSeq:                                     // Bad pid sequencing (already ACKed good data).  Ignore data
+    bu          NextToken
+
+XUD_TokenOut_BufferFull:
+    ldw         r9, dp[flag1_port]
+    setc        res[r9], XS1_SETC_RUN_CLRBUF
+    setc        res[r9], XS1_SETC_COND_NEQ
+XUD_TokenOut_WaitForPacketEnd:                     // Wait for end of data then send NAK
+    in          r11, res[r9]
+    setc        res[r9], XS1_SETC_COND_EQ
+    in          r11, res[r9]
+                                                   // TODO: Observe interpacket delay
+#ifndef XUD_NAK_ISO_OUT
+    ldw         r4, sp[(STACK_EXTEND+5)]           // Load ep type table
+    ldw         r4, r4[r10]                        // load EP type
+    bf          r4, PrimaryBufferFull_NoNak
+#endif
+    // Load handshake (NAK or STALL)
+    ldaw        r5, dp[handshakeTable_OUT]         // Load handshake table
+    ldw         r11, r5[r10]
+    outpw       res[TXD], r11, 8
+    syncr       res[TXD]
+
+PrimaryBufferFull_NoNak:
+    setc        res[RXD], XS1_SETC_RUN_CLRBUF
+    bu          NextToken
+
+// Timed-out waiting for data after OUT... go back to waiting for tokens
+OutDataTimeOut:
+    bu          NextToken
