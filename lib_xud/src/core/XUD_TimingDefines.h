@@ -26,32 +26,4 @@
 #define TX_HANDSHAKE_TIMEOUT_us     5      // How long we wait for handshake after sending tx data
 #define TX_HANDSHAKE_TIMEOUT        (TX_HANDSHAKE_TIMEOUT_us * REF_CLK_FREQ)
 
-// Raw PIDs
-#define PID_OUT                     0x01
-#define PID_ACK                     0x02
-#define PID_DATA0                   0x03
-#define PID_PING                    0x04
-#define PID_SOF                     0x05
-#define PID_IN                      0x09
-#define PID_DATA1                   0x0b
-#define PID_SETUP                   0x0d
-
-// PIDs with error check
-#define PIDn_OUT                    0xe1
-#define PIDn_ACK                    0xd2
-#define PIDn_DATA0                  0xc3
-#define PIDn_SOF                    0xa5
-#define PIDn_IN                     0x69
-#define PIDn_NAK                    0x5a
-#define PIDn_DATA1                  0x4b
-#define PIDn_SETUP                  0x2d
-#define PIDn_STALL                  0x1e
-
-// Test selector defines for Test mode
-#define WINDEX_TEST_J               (0x1<<8)
-#define WINDEX_TEST_K               (0x2<<8)
-#define WINDEX_TEST_SE0_NAK         (0x3<<8)
-#define WINDEX_TEST_PACKET          (0x4<<8)
-#define WINDEX_TEST_FORCE_ENABLE    (0x5<<8)
-
 #endif

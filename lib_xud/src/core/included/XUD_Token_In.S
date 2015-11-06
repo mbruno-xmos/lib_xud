@@ -225,7 +225,7 @@ XUD_IN_RxAck:
     clrpt	   res[r1]			                   // Clear port time on valid token port
     edu        res[RXD]
     shr        r11, r11, 24                        // Shift off junk data to leave ACK
-    ldc        r9, PID_ACK                         // Check for good ACK (L series strips of negated bits from PID)
+    ldc        r9, USB_PID_ACK                         // Check for good ACK (L series strips of negated bits from PID)
     xor        r9, r11, r9
     edu        res[r1]                             // Disable events on ValidToken port
     bt         r9, BadHandShake                    // Invalid handshake received from host. we need to resend...

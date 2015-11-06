@@ -3,6 +3,7 @@
 #include <print.h>
 #include <platform.h>
 #include "XUD_USB_Defines.h"
+#include "XUD_TimingDefines.h"
 #include "XUD_Support.h"
 #include "xud.h"
 #include "XUD_USBTile_Support.h"
