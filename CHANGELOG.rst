@@ -1,6 +1,11 @@
 sc_xud Change Log
 =================
 
+2.1.1 hotfix
+------------
+    * RESOLVED:   Device might hang during resume if host follows resume and idle with activity
+                  after short time close to specified minimum 1.33us
+
 2.1.1
 -----
     * ADDED:      Warning emitted when number of cores is greater than 6
