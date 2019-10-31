@@ -53,44 +53,44 @@ StoreTailDataOut:
     out        res[r11], r4                     // Output datalength (words)
     outt       res[r11], r8                     // Send tail length
 
-    bu        NextTokenAfterOut
+    bu         NextTokenAfterOut
 
 // Various Error handling functions -------------------------------------------------------------------
 Err_RxErr:                                      // RxError signal high during data packet receive:
-    clrsr     3
+    clrsr      3
     clre
-    ldw       r10, sp[15]                       // Read out data from RxE port
-    in        r11, res[r10]
-    eeu       res[r10]
-    ldw       r10, sp[10]
-    in        r11, res[r10]                     // Wait for rxa low and ignore packet (let transaction timout)
-    setsr     3                                 // Re-enable thread interrupts
-    bu        NextToken
+    ldw        r10, sp[15]                       // Read out data from RxE port
+    in         r11, res[r10]
+    eeu        res[r10]
+    ldw        r10, sp[10]
+    in         r11, res[r10]                     // Wait for rxa low and ignore packet (let transaction timout)
+    setsr      3                                 // Re-enable thread interrupts
+    bu         NextToken
 
 XUD_TokenOut_BufferFull:
-  ldw       r9, dp[flag1_port]
-  setc      res[r9], XS1_SETC_RUN_CLRBUF
-  setc      res[r9], XS1_SETC_COND_NEQ
+    ldw        r9, dp[flag1_port]
+    setc       res[r9], XS1_SETC_RUN_CLRBUF
+    setc       res[r9], XS1_SETC_COND_NEQ
 XUD_TokenOut_WaitForPacketEnd:                  // Wait for end of data then send NAK
-  in        r11, res[r9]
-  setc      res[r9], XS1_SETC_COND_EQ
-  in        r11, res[r9]
+    in         r11, res[r9]
+    setc       res[r9], XS1_SETC_COND_EQ
+    in         r11, res[r9]
                                                 // TODO: Observe interpacket delay
 #ifndef XUD_NAK_ISO_OUT
-  ldw       r4, sp[(STACK_EXTEND+5)]            // Load ep type table
-  ldw       r4, r4[r10]                         // load EP type
-  bf        r4, PrimaryBufferFull_NoNak
+    ldw        r4, sp[(STACK_EXTEND+5)]          // Load ep type table
+    ldw        r4, r4[r10]                       // load EP type
+    bf         r4, PrimaryBufferFull_NoNak
 #endif
 
-  // Load handshake (ACK or STALL)
-  ldaw       r5, dp[handshakeTable_OUT]         // Load handshake table
-  ldw        r11, r5[r10]
-  outpw     res[TXD], r11, 8
-  syncr     res[TXD]
+    // Load handshake (ACK or STALL)
+    ldaw       r5, dp[handshakeTable_OUT]         // Load handshake table
+    ldw        r11, r5[r10]
+    outpw      res[TXD], r11, 8
+    syncr      res[TXD]
 
 PrimaryBufferFull_NoNak:
-  setc      res[RXD], XS1_SETC_RUN_CLRBUF
-  bu        NextToken
+    setc      res[RXD], XS1_SETC_RUN_CLRBUF
+    bu        NextToken
 
 // Timedout waiting for data after OUT... go back to waiting for tokens
 //OutDataTimeOut:
