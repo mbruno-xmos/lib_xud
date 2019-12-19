@@ -13,9 +13,6 @@ void XUD_Error_hex(char errString[], int i_err);
 #define XUD_Error_hex(a, b) /* */
 #endif
 
-#undef __XS2A__
-#define __XS3A__
-
 #include <xs1.h>
 #include <print.h>
 #include <xclib.h>
