@@ -12,101 +12,72 @@
 #include "xud.h"
 #include "platform.h"
 #include "xc_ptr.h"
+#include "shared.h"
 
-#define XUD_EP_COUNT_OUT   3
-#define XUD_EP_COUNT_IN    3
+#ifndef TEST_EP_NUM
+#define TEST_EP_NUM   1
+#endif
 
+#ifndef PKT_LENGTH_START
+#define PKT_LENGTH_START 10
+#endif
+
+#ifndef PKT_LENGTH_END
+#define PKT_LENGTH_END 19
+#endif
+
+#define XUD_EP_COUNT_OUT   4
+#define XUD_EP_COUNT_IN    4
 
 /* Endpoint type tables */
 XUD_EpType epTypeTableOut[XUD_EP_COUNT_OUT] = {XUD_EPTYPE_CTL,
                                                 XUD_EPTYPE_BUL,
+                                                 XUD_EPTYPE_BUL,
                                                  XUD_EPTYPE_BUL};
 XUD_EpType epTypeTableIn[XUD_EP_COUNT_IN] =   {XUD_EPTYPE_CTL, 
                                                 XUD_EPTYPE_BUL,
-                                                XUD_EPTYPE_BUL};
+                                                XUD_EPTYPE_BUL,
+                                                XUD_EPTYPE_ISO};
 
-void Endpoint0( chanend c_ep0_out, chanend c_ep0_in, chanend ?c_usb_test);
-
-void exit(int);
-
-#define FAIL_RX_DATAERROR 0
-
-unsigned fail(int x)
-{
-
-    printstr("\nXCORE: ### FAIL ******");
-    switch(x)
-    {
-        case FAIL_RX_DATAERROR:
-		    printstr("XCORE RX Data Error\n");
-
-            break;
-
-    }
-
-    exit(1);
-}
-
-unsigned char g_rxDataCheck[5] = {0, 0, 0, 0, 0};
-unsigned char g_txDataCheck[5] = {0,0,0,0,0,};
-unsigned g_txLength[5] = {0,0,0,0,0};
-
-
-#pragma unsafe arrays
-void SendTxPacket(XUD_ep ep, int length, int epNum)
-{
-    unsigned char buffer[1024];
-    unsigned char x;
-
-    for (int i = 0; i < length; i++)
-    {
-        buffer[i] = g_txDataCheck[epNum]++;
-    }
-
-    XUD_SetBuffer(ep, buffer, length);
-}
-
-int TestEp_Bulk(chanend c_out, chanend c_in, int epNum)
-{
-    unsigned int length;
-    XUD_Result_t res;
-
-    XUD_ep ep_out = XUD_InitEp(c_out);
-    XUD_ep ep_in  = XUD_InitEp(c_in);
-
-    /* Buffer for Setup data */
-    unsigned char buffer[1024];
-
-    for(int i = 10; i <= 14; i++)
-    {    
-        SendTxPacket(ep_in, i, epNum);
-    }
-
-    exit(0);
-}
-
-
-#define USB_CORE 0
+#ifdef XUD_SIM_RTL
+int testmain()
+#else
 int main()
+#endif
 {
     chan c_ep_out[XUD_EP_COUNT_OUT], c_ep_in[XUD_EP_COUNT_IN];
-    chan c_sync;
-    chan c_sync_iso;
-
-    //p_rxDataCheck = char_array_to_xc_ptr(g_rxDataCheck);
-    //p_txDataCheck = char_array_to_xc_ptr(g_txDataCheck);
-    //p_txLength = array_to_xc_ptr(g_txLength);
 
     par
     {
-        
-        XUD_Manager( c_ep_out, XUD_EP_COUNT_OUT, c_ep_in, XUD_EP_COUNT_IN,
+        {
+            #if defined(XUD_TEST_SPEED_FS)
+            unsigned speed = XUD_SPEED_FS;
+            #elif defined(XUD_TEST_SPEED_HS)
+            unsigned speed = XUD_SPEED_HS;
+            #endif
+            
+            // TODO test is running at 400MHz 
+            XUD_Main(c_ep_out, XUD_EP_COUNT_OUT, c_ep_in, XUD_EP_COUNT_IN,
                                 null, epTypeTableOut, epTypeTableIn,
-                                null, null, -1, XUD_SPEED_HS, XUD_PWR_BUS);
+                                null, null, -1, speed, XUD_PWR_BUS);
+        }
 
-        //TestEp_Control(c_ep_out[0], c_ep_in[0], 0);
+		{
+			unsigned fail = TestEp_Tx(c_ep_in[TEST_EP_NUM], TEST_EP_NUM, PKT_LENGTH_START, PKT_LENGTH_END, RUNMODE_DIE);
 
-        TestEp_Bulk(c_ep_out[2], c_ep_in[2], 1);
+#ifdef XUD_SIM_RTL
+            /* Note, this test relies on checking at the host side */
+
+            if(fail)
+                TerminateFail(fail);
+            else
+                TerminatePass(fail);    
+#endif
+			
+            XUD_ep ep_out_0 = XUD_InitEp(c_ep_out[0]);
+			XUD_Kill(ep_out_0);
+			exit(0);
+		}
     }
 
     return 0;

@@ -27,3 +27,5 @@ sphinx.output
 Installs/
 .settings
 **/.venv/**
+tests/bin.txt
+tests/log

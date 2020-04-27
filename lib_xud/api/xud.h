@@ -6,51 +6,16 @@
 #ifndef __xud_h__
 #define __xud_h__
 
+#include <platform.h>
 
-#ifndef XUD_U_SERIES
-#define XUD_U_SERIES 1
-#endif
-
-#ifndef XUD_L_SERIES
-#define XUD_L_SERIES 2
-#endif
-
-#ifndef XUD_G_SERIES
-#define XUD_G_SERIES 3
+#if defined(__XS3A__)
+#define XUD_OPT_SOFTCRC5 (1)
+#else
+#define XUD_OPT_SOFTCRC5 (0)
 #endif
 
-#ifndef XUD_X200_SERIES
-#define XUD_X200_SERIES 4
-#endif
-
-#if XUD_SERIES_SUPPORT==1
-#ifndef ARCH_S
-#define ARCH_S 1
-#endif
-#ifndef ARCH_L
-#define ARCH_L 1
-#endif
-#endif
-
-#if XUD_SERIES_SUPPORT==2
-#ifndef ARCH_L
-#define ARCH_L 1
-#endif
-#endif
-
-#if XUD_SERIES_SUPPORT==3
-#ifndef ARCH_G
-#define ARCH_G 1
-#endif
-#endif
-
-#if XUD_SERIES_SUPPORT==4
-#ifndef ARCH_L
-#define ARCH_L 1
-#endif
-#ifndef ARCH_X200
-#define ARCH_X200 1
-#endif
+#ifndef XUD_STARTUP_ADDRESS
+#define XUD_STARTUP_ADDRESS (0)
 #endif
 
 #ifdef __xud_conf_h_exists__
@@ -69,7 +34,6 @@
 #endif
 
 #if defined(PORT_USB_CLK)
-
   /* Ports declared in the .xn file. Automatically detect device series */
   #if defined(PORT_USB_RX_READY)
     #if !defined(XUD_SERIES_SUPPORT)
@@ -99,8 +63,8 @@
   #endif
 
   /* Ports have not been defined in the .xn file */
-
-  #if (XUD_SERIES_SUPPORT == XUD_U_SERIES)
+  #if defined (__XS1B__) 
+#error
     #define PORT_USB_CLK         on USB_TILE: XS1_PORT_1J
     #define PORT_USB_TXD         on USB_TILE: XS1_PORT_8A
     #define PORT_USB_RXD         on USB_TILE: XS1_PORT_8C
@@ -110,7 +74,7 @@
     #define PORT_USB_FLAG0       on USB_TILE: XS1_PORT_1N
     #define PORT_USB_FLAG1       on USB_TILE: XS1_PORT_1O
     #define PORT_USB_FLAG2       on USB_TILE: XS1_PORT_1P
-  #elif (XUD_SERIES_SUPPORT == XUD_X200_SERIES)
+  #else // __XS3A__ and __XS2A__
     #define PORT_USB_CLK         on USB_TILE: XS1_PORT_1J
     #define PORT_USB_TXD         on USB_TILE: XS1_PORT_8A
     #define PORT_USB_RXD         on USB_TILE: XS1_PORT_8B
@@ -120,16 +84,6 @@
     #define PORT_USB_FLAG0       on USB_TILE: XS1_PORT_1E
     #define PORT_USB_FLAG1       on USB_TILE: XS1_PORT_1F
     #define PORT_USB_FLAG2       on USB_TILE: XS1_PORT_1G
-  #else
-    #define PORT_USB_CLK         on USB_TILE: XS1_PORT_1H
-    #define PORT_USB_REG_WRITE   on USB_TILE: XS1_PORT_8C
-    #define PORT_USB_REG_READ    on USB_TILE: XS1_PORT_8D
-    #define PORT_USB_TXD         on USB_TILE: XS1_PORT_8A
-    #define PORT_USB_RXD         on USB_TILE: XS1_PORT_8B
-    #define PORT_USB_STP_SUS     on USB_TILE: XS1_PORT_1E
-    #define PORT_USB_FLAG0       on USB_TILE: XS1_PORT_1N
-    #define PORT_USB_FLAG1       on USB_TILE: XS1_PORT_1O
-    #define PORT_USB_FLAG2       on USB_TILE: XS1_PORT_1P
   #endif
 #endif // PORT_USB_CLK
 
@@ -211,14 +165,6 @@ typedef enum XUD_Result
  *                            endpoints, the second array contains the
  *                            endpoint types for each of the IN
  *                            endpoints.
- * \param   p_usb_rst   The port to used to connect to an external phy reset line.
- *                      Should be ``null`` for U-Series.
- * \param   clk         The clock block to use for the p_usb_rst port -
- *                      this should not be clock block 0. Should be ``null`` for U-Series.
- * \param   rstMask     The mask to use when taking an external phy into/out of reset. The mask is
- *                      ORed into the port to disable reset, and unset when
- *                      deasserting reset. Use '-1' as a default mask if this
- *                      port is not shared.
  * \param   desiredSpeed This parameter specifies what speed the device will attempt to run at
  *                      i.e. full-speed (ie 12Mbps) or high-speed (480Mbps) if supported
  *                      by the host. Pass ``XUD_SPEED_HS`` if high-speed is desired or ``XUD_SPEED_FS``
@@ -228,14 +174,11 @@ typedef enum XUD_Result
  *                      Valid values are XUD_PWR_SELF and XUD_PWR_BUS.
  *
  */
-int XUD_Main(/*tileref * unsafe usbtileXUD_res_t &xudres, */ chanend c_epOut[], int noEpOut,
-
+int XUD_Main(/*tileref * unsafe usbtileXUD_res_t &xudres, */
+                chanend c_epOut[], int noEpOut,
                 chanend c_epIn[], int noEpIn,
                 NULLABLE_RESOURCE(chanend, c_sof),
                 XUD_EpType epTypeTableOut[], XUD_EpType epTypeTableIn[],
-                NULLABLE_RESOURCE(out port, p_usb_rst),
-                NULLABLE_RESOURCE(clock, clk),
-                unsigned rstMask,
                 XUD_BusSpeed_t desiredSpeed,
                 XUD_PwrConfig pwrConfig);
 #endif
@@ -405,6 +348,12 @@ void XUD_ResetEpStateByAddr(unsigned epNum);
  */
 void XUD_SetTestMode(XUD_ep ep, unsigned testMode);
 
+/**
+ * \brief   Terminate XUD core
+ * \param   ep          XUD_ep type (must be endpoint 0 in or out)
+ * \warning Must be run on same tile as XUD core
+ */
+void XUD_Kill(XUD_ep ep);
 
 /**********************************************************************************************
  * Below are prototypes for main assembly functions for data transfer to/from USB I/O thread
@@ -591,6 +540,11 @@ void XUD_SetData_Select(chanend c, XUD_ep ep, REFERENCE_PARAM(XUD_Result_t, resu
 
 /* Control token defines - used to inform EPs of bus-state types */
 #define USB_RESET_TOKEN             8        /* Control token value that signals RESET */
+
+#ifndef XUD_OSC_MHZ
+#define XUD_OSC_MHZ (24)
+#endif
+
 
 #endif //__XC__ || __STDC__
 

@@ -1,15 +1,7 @@
-// Copyright (c) 2011-2018, XMOS Ltd, All rights reserved
+// Copyright (c) 2011-2019, XMOS Ltd, All rights reserved
 .align 4
 Pid_Ping:
-#ifdef ARCH_L
-    inpw      r10, res[RXD], 8;                 // Read EP Number
-    shr       r10, r10, 24;                     // Shift off junk
-
-    in         r11, res[r1];
-    bt         r11, InvalidToken;               // VALID_TOKEN not high, ignore token 
-#else
-    #include "XUD_G_Crc.S"
-#endif
+    #include "XUD_CrcAddrCheck.S"
 
 LoadStatTablePing:
     ldw       r11, r5[r10]                      // Load relevant EP chanend
@@ -17,9 +9,11 @@ LoadStatTablePing:
 
 .scheduling off
 PrimaryBufferEmpty_PING:                        // Send ACK
+#if (XUD_CORE_CLOCK > 400)
     nop
     nop
     nop
+#endif
     nop
     nop
     nop
@@ -29,9 +23,11 @@ PrimaryBufferEmpty_PING:                        // Send ACK
     bu           NextTokenAfterPing
 
 PrimaryBufferFull_PING:                         // Send NAK
+#if (XUD_CORE_CLOCK > 400)
     nop
     nop
     nop
+#endif
     nop
     nop
     nop

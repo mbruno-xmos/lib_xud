@@ -1,58 +1,41 @@
 #!/usr/bin/env python
-# Copyright (c) 2016-2019, XMOS Ltd, All rights reserved
+# Copyright (c) 2016-2020, XMOS Ltd, All rights reserved
 
 import random
 import xmostest
 from  usb_packet import *
-#import * AppendSetupToken, TxDataPacket, RxDataPacket, TokenPacket, RxHandshakePacket, TxHandshakePacket
+import usb_packet
 from usb_clock import Clock
-from helpers import do_rx_test, packet_processing_time, get_dut_address
-from helpers import choose_small_frame_size, check_received_packet, runall_rx
+from helpers import do_usb_test, runall_rx
 
-
-# Single, setup transaction to EP 0
-
-def do_test(arch, tx_clk, tx_phy, seed):
+def do_test(arch, clk, phy, seed):
     rand = random.Random()
     rand.seed(seed)
 
-    dev_address = get_dut_address()
     ep = 1
+    address = 1
 
     # The inter-frame gap is to give the DUT time to print its output
     packets = []
 
     dataval = 0;
 
-    AppendOutToken(packets, ep)
-    packets.append(TxDataPacket(rand, data_start_val=dataval, length=10, pid=0x3)) #DATA0
-    packets.append(RxHandshakePacket())
+    pid = PID_DATA0;
 
-    # Note, quite big gap to allow checking.
-    
-    dataval += 10
-    AppendOutToken(packets, ep, inter_pkt_gap=6000)
-    packets.append(TxDataPacket(rand, data_start_val=dataval, length=11, pid=0xb)) #DATA1
-    packets.append(RxHandshakePacket())
+    for pktlength in range(10, 20):
 
-    dataval += 11
-    AppendOutToken(packets, ep, inter_pkt_gap=6000)
-    packets.append(TxDataPacket(rand, data_start_val=dataval, length=12, pid=0x3)) #DATA0
-    packets.append(RxHandshakePacket())
+        AppendOutToken(packets, ep, address, inter_pkt_gap=500)
+        packets.append(TxDataPacket(rand, data_start_val=dataval, length=pktlength, pid=pid)) 
+        packets.append(RxHandshakePacket())
+   
+        if(pid == usb_packet.PID_DATA1):
+            pid = usb_packet.PID_DATA0;
+        else:
+            pid = usb_packet.PID_DATA1;
 
-    dataval += 12
-    AppendOutToken(packets, ep, inter_pkt_gap=6000)
-    packets.append(TxDataPacket(rand, data_start_val=dataval, length=13, pid=0xb)) #DATA1
-    packets.append(RxHandshakePacket(timeout=9))
+        dataval += pktlength
 
-    dataval += 13
-    AppendOutToken(packets, ep, inter_pkt_gap=6000)
-    packets.append(TxDataPacket(rand, data_start_val=dataval, length=14, pid=0x3)) #DATA0
-    packets.append(RxHandshakePacket())
-
-
-    do_rx_test(arch, tx_clk, tx_phy, packets, __file__, seed,
-               level='smoke', extra_tasks=[])
+    do_usb_test(arch, clk, phy, packets, __file__, seed, level='smoke', extra_tasks=[])
 
 def runtest():
     random.seed(1)

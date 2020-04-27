@@ -1,6 +1,12 @@
 lib_xud Change Log
 ==================
 
+2.0.0
+-----
+
+  * ADDED:      Initial support for XS3A based devices
+  * CHANGE:     Removed support for XS1-G, and XS1-L (including U series) based devices
+
 1.0.0
 -----
 

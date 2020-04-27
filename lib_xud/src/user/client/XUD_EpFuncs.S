@@ -17,7 +17,7 @@
 .cc_top XUD_GetSetupData.func
 .align 4
 XUD_GetSetupData:
-#if defined(__XS2A__)
+#if defined(__XS2A__) || defined(__XS3A__)
 .issue_mode single
   ENTSP_lu6 4
 #else
@@ -51,7 +51,7 @@ XUD_GetSetupData_NoReq:                         // Entry for _NoReq
                                                 // TODO..
 
 XUD_GetSetupData_ResetPid:                      // We must reset PID toggling on SETUP (both IN AND OUT)
-#if (XUD_SERIES_SUPPORT==3)
+#ifdef __XS3A__
     ldc         r11, USB_PIDn_DATA1
 #else
     ldc         r11, USB_PID_DATA1
@@ -136,11 +136,11 @@ XUD_GetSetupData_Reset:
 .cc_top XUD_GetData.func
 .align 4
 XUD_GetData:
-#if defined(__XS2A__)
+#if defined(__XS2A__) || defined(__XS3A__)
 .issue_mode single
-  ENTSP_lu6 4
+  ENTSP_lu6    4
 #else
-  entsp       4
+  entsp        4
 #endif
     stw         r10, sp[1]
     mov         r11, r1
@@ -187,7 +187,8 @@ XUD_GetData_PidOkay:
     bf         r11, XUD_GetData_ReturnOk        // Jump over PID toggle for ISO
 
 XUD_GetData_PidToggle:
-#if (XUD_SERIES_SUPPORT==3)
+//#if (XUD_SERIES_SUPPORT==3)
+#ifdef __XS3A__
     ldc        r11, 0x88
 #else
     ldc        r11, 8
@@ -219,8 +220,8 @@ XUD_GetData_GotSetup:
                                                 // We expect data0 else something gone wrong...
                                                 // TODO..
 
-XUD_GetDataSetupData_ResetPid:                      // We must reset PID toggling on SETUP (both IN AND OUT)
-#if (XUD_SERIES_SUPPORT==3)
+XUD_GetDataSetupData_ResetPid:                  // We must reset PID toggling on SETUP (both IN AND OUT)
+#ifdef __XS3A__
     ldc         r11, USB_PIDn_DATA1
 #else
     ldc         r11, USB_PID_DATA1
@@ -273,7 +274,7 @@ XUD_GetDataSetupData_ResetPid:                      // We must reset PID togglin
 .cc_top XUD_SetData.func
 .align 4
 XUD_SetData:
-#if defined(__XS2A__)
+#if defined(__XS2A__) || defined(__XS3A__)
 .issue_mode single
   ENTSP_lu6 8
 #else
@@ -292,15 +293,24 @@ XUD_SetData_NoReq:
     add         r1, r1, r3                      // Add start index to buffer address
 
 CalcTailLength:
-    shl         r3, r2, 5                       // Taillength: bytes to bits * 2
-    zext        r3, 7
+    shl         r3, r2, 3                       // Taillength: bytes to bits
+    zext        r3, 5
 
 SetupLoopTerm:
     shr         r2, r2, 2                       // r2: datalength (bytes) ---> r2: datalength (words)
 
+    // TODO do this a bit more effciently..
+    // If tail is 0 and word-length not 0. Make tail-length 32 and word-length--
+    bt          r3, AdjustBufferPointer
+    bf          r2, AdjustBufferPointer
+
+    sub         r2, r2, 1
+    ldc         r3, 32
+
 AdjustBufferPointer:
     shl         r5, r2, 2                       // Get end off buffer address
     add         r1, r1, r5
+   
 
 NegativeIndex:                                  // Produce negtive offset from end of buffer
     neg         r2, r2
@@ -371,7 +381,7 @@ XUD_SetData_Reset:
 .cc_top XUD_GetData_Select.func
 .align 4
 XUD_GetData_Select:
-#if defined(__XS2A__)
+#if defined(__XS2A__) || defined(__XS3A__)
 .issue_mode single
   ENTSP_lu6 0
 #endif
@@ -407,7 +417,8 @@ XUD_GetData_Select_CheckPid:                    // Check PID
     bt          r11, XUD_GetData_Select_BadPkt
 
 XUD_GetData_Select_PidToggle:
-#if (XUD_SERIES_SUPPORT==3)
+//#if (XUD_SERIES_SUPPORT==3)
+#ifdef __XS3A__
     ldc         r2, 0x88
 #else
     ldc         r2, 8
@@ -462,7 +473,7 @@ XUD_GetData_Select_Return_Reset:
 .cc_top XUD_SetData_Select.func
 .align 4
 XUD_SetData_Select:
-#if defined(__XS2A__)
+#if defined(__XS2A__) || defined(__XS3A__)
 .issue_mode single
   ENTSP_lu6 0
 #endif
@@ -520,7 +531,7 @@ XUD_SetData_Select_Reset:
 .cc_top XUD_SetStallByAddr.func
 .align 4
 XUD_SetStallByAddr:
-#if defined(__XS2A__)
+#if defined(__XS2A__) || defined(__XS3A__)
 .issue_mode single
   ENTSP_lu6 0
 #endif
@@ -566,7 +577,7 @@ XUD_SetStallByAddr_OUT:
 .cc_top XUD_ClearStallByAddr.func
 .align 4
 XUD_ClearStallByAddr:
-#if defined(__XS2A__)
+#if defined(__XS2A__) || defined (__XS3A__)
 .issue_mode single
   ENTSP_lu6 0
 #endif
@@ -587,7 +598,7 @@ XUD_ClearStallByAddr_OUT:
     ldaw        r1,  dp[handshakeTable_OUT]
     stw         r2, r1[r0]
 
-#if(XUD_SERIES_SUPPORT==3)
+#ifdef __XS3A__
     ldc         r1, USB_PIDn_DATA0
 #else
     ldc         r1, USB_PID_DATA0
@@ -632,7 +643,7 @@ XUD_ClearStallByAddr_ResetDataPid:              // Reset DATA PID to DATA0
 .cc_top XUD_ResetEpStateByAddr.func
 .align 4
 XUD_ResetEpStateByAddr:
-#if defined(__XS2A__)
+#if defined(__XS2A__) || defined(__XS3A__)
 .issue_mode single
   ENTSP_lu6 0
 #endif
@@ -642,7 +653,7 @@ XUD_ResetEpStateByAddr:
     ldc         r1, USB_PIDn_DATA0
     bu          XUD_ResetEpStateByAddr_
 XUD_ResetEpStateByAddr_OUT:
-#if(XUD_SERIES_SUPPORT==3)
+#if defined(__XS3A__) 
     ldc         r1, USB_PIDn_DATA0
 #else
     ldc         r1, USB_PID_DATA0
@@ -687,7 +698,7 @@ NoOffset:
 .cc_top XUD_SetTestMode.func
 .align 4
 XUD_SetTestMode:
-#if defined(__XS2A__)
+#if defined(__XS2A__) || defined(__XS3A__)
 .issue_mode single
   ENTSP_lu6 0
 #endif

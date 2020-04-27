@@ -1,6 +1,11 @@
-VERSION = 1.0.0
+VERSION = 2.0.0
 
 DEPENDENT_MODULES =
+XCC_FLAGS_XUD_IoLoop.S = $(MODULE_XCC_FLAGS) -fschedule -g0
+
+EXCLUDE_FILES += XUD_Token_In.S XUD_Token_Ping.S XUD_Token_SOF.S XUD_Token_Out.S XUD_Token_Out_DI.S XUD_Token_Setup.S XUD_CrcAddrCheck.S XUD_TokenJmp.S XUD_PidJumpTable.S XUD_Token_In_DI.S XUD_Token_Setup_DI.S XUD_RxData.S
+
+OPTIONAL_HEADERS += xud_conf.h
 
 MODULE_XCC_FLAGS = $(XCC_FLAGS) \
                    -O3 \

@@ -5,27 +5,17 @@
 #define RXD r0
 #define TXD r2
 
-.align 4
+.align 8
 .skip 0
-//.cc_top Pid_Out.func, Pid_Out
 Pid_Out:
-#ifdef ARCH_L
-    inpw       r10, res[RXD], 8;                // Read EP Number */
-    shr        r10, r10, 24;                    // Shift off junk */
-
-    in         r4, res[r1];
-    bt         r4, InvalidToken;                // If VALID_TOKEN not high, ignore token */
-#else
-    // ARCH_G
-    #include "XUD_G_Crc.S"
-#endif
+    #include "XUD_CrcAddrCheck.S"
     ldw        r3, r5[r10]                      // Load relevant EP pointer
     bf         r3, XUD_TokenOut_BufferFull
     ldw        r1, r3[3]                        // Load buffer from EP structure
 
 CheckEpTypeOut:
     ldw        r11, r3[5]                       // Load EP type
-    bt         r11, DoOutNonIso                 // ISO endpoint
+    BRFT_ru6   r11, DoOutNonIso           // ISO endpoint
 
 OutReady:
     stw        r11, r5[r10]                     // Clear ready straight away - we don't to CRC checking on Iso - else we would have to wait for end of packet
@@ -36,15 +26,16 @@ InformEP_Iso:                                   // Iso EP - no handshake
     ldw        r11, r3[1]                       // Load EP chanend
     out        res[r11], r4                     // Output datalength (words)
     outt       res[r11], r8                     // Send tail length
-
+    
+    ldc        r7, 0xf335                       // CRC16 init (in) 
     ldc        r6, 0x3334                       // CRC16 init (out) - Needs reseting after an out
-#ifndef ARCH_G
+#ifndef __XS3A__
     ldw        r1, sp[STACK_FLAG0_PORT]
 #endif
     //ldc        r4, XUD_MAX_NUM_EP_OUT           // This could be shaved if XUD_MAX_NUM_EP's < 12. Now use an LDAW to at 16.
 
 //------------------------------------------------------------------------------------------------
-#ifdef ARCH_L
+#if defined(__XS2A__) || defined(__XS1B__)
     ldaw        r10, dp[PidJumpTable]
                                                 // Original USB Token: | CRC | EP | ADDR | PID | junk
                                                 // Received token is address and CRC checked.
@@ -83,7 +74,12 @@ DoOutNonIso:
 
 doRXDataReturn_NonIso:
     bf         r1, NextTokenAfterOut            // Check for bad crc
-    ldc        r11, USB_PIDn_ACK                    // Data CRC good and EP not Iso: Send Ack
+    ldc        r11, USB_PIDn_ACK                // Data CRC good and EP not Iso: Send Ack
+    nop
+    nop
+    nop
+    nop
+    nop
     outpw      res[TXD], r11, 8
     syncr      res[TXD]
 
@@ -150,11 +146,10 @@ PrimaryBufferFull_NoNak:
   bu        NextToken
 
 // Timedout waiting for data after OUT... go back to waiting for tokens
-OutDataTimeOut:
+//OutDataTimeOut:
   //clre
   //bl	ERR_OutDataTimeout
-  bu        NextToken
+  //bu        NextToken
 
 
 
-//.cc_bottom Pid_Out.func

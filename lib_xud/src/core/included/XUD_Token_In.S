@@ -52,7 +52,7 @@ Pid_In:
     shr       r10, r10, 24;                     // Shift off junk
 
     in         r11, res[r1];
-    bt         r11, InvalidToken;               // If VALID_TOKEN not high, ignore token - PORT INVERTED! */
+    bt         r11, XUD_InvalidToken;               // If VALID_TOKEN not high, ignore token - PORT INVERTED! */
 #else
     #include "XUD_G_Crc.S"
 #endif
@@ -226,10 +226,6 @@ TxHandshakeTimeOut:
     edu         res[RXD]
     bu          BadHandShake
 
-    //ldc         r11, 1
-    //out         res[r5], r11
-    //bu        	NextToken
-
 // Transmitted data, and got something back within the timeout. Check for valid handshake...
 .align 4
 TxHandShakeReceived:
@@ -238,8 +234,8 @@ XUD_IN_RxAck:
     clrpt		res[r1]			                // Clear port time on valid token port
     edu         res[RXD]
     shr         r11, r11, 24                    // Shift off junk data to leave ACK
-#ifdef ARCH_L
-    ldc         r9, USB_PID_ACK                     // Check for good ACK (L series strips of negated bits from PID)
+#if defined(__XS2A__) || defined(__XS1B__)
+    ldc         r9, USB_PID_ACK                 // Check for good ACK (L series strips of negated bits from PID)
 #else
     ldc         r9, USB_PIDn_ACK
 #endif
@@ -271,15 +267,8 @@ BadHandShake:			                        // Received a bad (or no)handshake
 .skip 28
 SmallTxPacket:
     ldw          r8, r8[r4]                        // Load first data word
-//    inct       r8, res[r5]                      // Input tail length + 10
-    //inct       r6, res[r5]                      // get end of packet token
-    //sub        r8, r8, 10
-    //in         r6, res[r5]                      // Input tail data
-    //shl        r8, r8, 4                        // Tail length bytes to bits *2
-
-//    shr        r8, r8, 1
-
-    .xtabranch TxTail0s, TxTail1s, TxTail2s, TxTail3s
+    
+.xtabranch TxTail0s, TxTail1s, TxTail2s, TxTail3s
     bru         r6                              // branch taillength
 
 //--------------------------------------------------------------------------
@@ -320,29 +309,23 @@ XUD_IN_TxCrc_TailS1:
 .align 64
 .skip 0
 TxTail2s:
-    ldc        r6, 0
+    ldc         r6, 0
+    
     // Two tail byte
     shl         r8, r8, 8
-    or          r11, r11, r8
+    or          r11, r11, r8            // r11:  D1 | D0 | PID
     shr         r8, r8, 8
-    //outpw     res[TXD], r11, 8        // PID
-    //outpw        res[TXD], r6, 16
-
-    crc8         r7, r8, r8, r9
-    crc8         r7, r8, r8, r9
-    crc32        r7, r6, r9               // r5: 0
-    not          r7, r7
-    shr          r6, r7, 8
-
-    shl        r7, r7, 24
-    zext       r11, 24
-    or         r11, r11, r7
+    
 XUD_IN_TxPid_TailS2:
-    out     res[TXD], r11
-//    outpw        res[TXD], r7, 16
+    outpw       res[TXD], r11, 24
+
+    crc8        r7, r8, r8, r9
+    crc8        r7, r8, r8, r9
+    crc32       r7, r6, r9               // r6: 0
+    not         r7, r7
 
 XUD_IN_TxCrc_TailS2:
-    outpw      res[TXD], r6, 8
+    outpw      res[TXD], r7, 16
     bu           DoneTail
 
 .align 64
