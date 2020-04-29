@@ -53,31 +53,10 @@ extern in buffered port:32 p_usb_rxd;
 
 extern unsigned g_curSpeed;
 
-/* Reset USB transceiver for specified time */
-void XUD_PhyReset(out port p_rst, int time, unsigned rstMask)
-{
-    unsigned x;
-
-    x = peek(p_rst);
-    x &= (~rstMask);
-    p_rst <: x;
-
-    XUD_Sup_Delay(time);
-
-    x = peek(p_rst);
-    x |= rstMask;
-    p_rst <: x;
-}
-
 int XUD_Init()
 {
    timer SE0_timer;
    unsigned SE0_start_time = 0;
-
-#ifdef DO_TOKS
-   /* Set default device address */
-   XUD_UIFM_RegWrite(reg_write_port, UIFM_REG_ADDRESS, 0x0);
-#endif
 
    /* Wait for host */
     while (1)
@@ -85,13 +64,37 @@ int XUD_Init()
 
 #ifdef __XS3A__ 
     
-#warning XUD_Init() not properly implemented for XS3A
-        XUD_LineState_t ls = XUD_HAL_GetLineState();
+        XUD_LineState_t currentLs = XUD_HAL_GetLineState();
         
-        if(ls == XUD_LINESTATE_SE0)
-            return 1;
-        else if(ls == XUD_LINESTATE_J)
-            return 0;
+        switch (currentLs)
+        {
+
+           case XUD_LINESTATE_SE0:
+
+                unsigned timedOut = XUD_HAL_WaitForLineStateChange(currentLs, T_WTRSTFS);
+    
+                /* If no change in LS then return 1 for reset */
+                if(timedOut) 
+                    return 1; 
+
+                /* Otherwise SE0 went away.. keep looking */
+                break;
+
+            case XUD_LINESTATE_J:
+    
+                 unsigned timedOut = XUD_HAL_WaitForLineStateChange(currentLs, STATE_START_TO);
+    
+                /* If no change in LS then return 0 for suspend */
+                if(timedOut) 
+                    return 0; 
+
+                /* Otherwise J went away.. keep looking */
+                break;
+
+            default:
+                /* Shouldn't expect to get here, but ignore anyway */
+                break;
+        }
 
 #else
         select
@@ -233,10 +236,71 @@ int XUD_Suspend(XUD_PwrConfig pwrConfig)
 #else
 int XUD_Suspend(XUD_PwrConfig pwrConfig)
 {
-#warning Suspend not implemented for XS3A
-    while(1);
-        // TODO
-}
+    timer t;
+    unsigned time;
 
+    unsigned reset = 0;
+
+    XUD_LineState_t currentLs = XUD_LINESTATE_J;
+    
+    while(1)
+    {
+        unsigned timedOut = XUD_HAL_WaitForLineStateChange(currentLs, 0);
+
+        switch(currentLs)
+        {
+            case XUD_LINESTATE_J:
+                /* Do nothing */
+                break;
+
+
+            /* Reset signalliung */
+            case XUD_LINESTATE_SE0:
+
+                timedOut = XUD_HAL_WaitForLineStateChange(currentLs, T_FILTSE0);
+
+                if(timedOut)
+                {
+                    /* Consider 2.5ms a complete reset */
+                    t :> time;
+                    t when timerafter(time + 250000) :> void;
+
+                    /* Return 1 for reset */
+                    return 1;
+
+                }
+
+                /* If didnt timeout then keep looping...*/
+                break;
+
+            /* K, start of resume */
+            case XUD_LINESTATE_K:
+
+                /* TODO debounce? */
+                XUD_HAL_WaitForLineStateChange(currentLs, 0);
+
+                switch(currentLs)
+                {
+                    /* J, unexpected, return to suspend.. */
+                    case XUD_LINESTATE_J:
+
+                        break;
+
+                    /* SE0, end of resume */
+                    case XUD_LINESTATE_SE0:
+                        if (g_curSpeed == XUD_SPEED_HS)
+                        {
+                            /* Move back into high-speed mode - Notes, writes to XS3A registers orders of magnitude faster than XS2A */
+                            XUD_HAL_EnterMode_PeripheralHighSpeed();
+
+                            /* Return 0 for resumed */
+                            return 0;
+                        }
+                        break;
+                }
+                break;
+        }
+    }
+}
 #endif
 #endif
