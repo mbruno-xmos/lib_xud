@@ -15,7 +15,7 @@
 
 .section        .cp.const4,"aMc",@progbits,4
 .cc_top suspendTimeout.data
-.align 4
+.align 8
 suspendTimeout:
 .long  SUSPEND_TIMEOUT
 .cc_bottom suspendTimeout.data
@@ -23,7 +23,7 @@ suspendTimeout:
 
 .section        .cp.const4,"aMc",@progbits,4
 .cc_top suspend_t_wtwrsths.data
-.align 4
+.align 8
 suspend_t_wtwrsths:
 .long SUSPEND_T_WTWRSTHS
 .cc_bottom suspend_t_wtwrsths.data
@@ -68,6 +68,7 @@ suspend_t_wtwrsths:
 .globl UsbTestModeHandler_asm
 .text
 .cc_top UsbTestModeHandler_asm.func, UsbTestModeHandler_asm
+.align 8
 UsbTestModeHandler_asm:
 	clrsr       0x18
 	clrsr       0x2
@@ -142,6 +143,7 @@ InvalidTestToken:
 .globl ResetIntHandler
 .text
 .cc_top ResetIntHandler.func, ResetIntHandler
+.align 8
 ResetIntHandler:
     clrsr   0x18                                // Clear InInterrupt bit (and InKernel)
     clrsr   0x2
@@ -203,7 +205,7 @@ waitforRXALow0:
     setc        res[RXD], XS1_SETC_RUN_CLRBUF
     bu          Loop_BadPid
 
-.align 4
+.align 8
 XUD_LLD_IoLoop:
     DUALENTSP_lu6  STACK_EXTEND
     stw         r4, sp[1]
@@ -393,7 +395,7 @@ XUD_InvalidTok_waitforRXALow:
     setc       res[RXD], XS1_SETC_RUN_CLRBUF
     bu         Loop_BadPid                      // Invalid token received Ignore unknown toks
 
-.align 4
+.align 8
 Return:
     ldw        r11, sp[14]                      // Free suspend/reset timer
     edu        res[r11]
