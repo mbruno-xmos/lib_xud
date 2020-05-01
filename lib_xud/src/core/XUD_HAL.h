@@ -4,18 +4,28 @@
  * \brief   USB HAL Layer 
 **/
 
+#ifdef __XS3A__
+#include <xs3a_registers.h>
+// TODO shoudl be properlty in HAL
+unsigned XtlSelFromMhz(unsigned m);
+#else
+#include "XUD_USBTile_Support.h"
+#include "xs1_to_glx.h"
+#include "xs2_su_registers.h"
+#define USB_TILE_REF usb_tile
+#endif
+
 /** 
  * \enum    XUD_LineState_t
  * \brief   USB Line States 
  */
 typedef enum XUD_LineState_t 
 {
-    XUD_LINESTATE_SE0,      /**< SE0 State */
-    XUD_LINESTATE_J,        /**< J State */
-    XUD_LINESTATE_K,        /**< K State */
-    XUD_LINESTATE_INVALID   /**< Invalid bus state both lines high **/
+    XUD_LINESTATE_SE0 = 0,      /**< SE0 State */
+    XUD_LINESTATE_J = 1,        /**< J State */
+    XUD_LINESTATE_K = 2,        /**< K State */
+    XUD_LINESTATE_SE1 = 3       /**< Invalid bus state both lines high **/
 } XUD_LineState_t;
-
 
 void XUD_HAL_EnterMode_PeripheralChirp();
 void XUD_HAL_EnterMode_PeripheralFullSpeed();
@@ -57,3 +67,9 @@ void XUD_HAL_Mode_DataTransfer();
  * \return  void
  **/
 void XUD_HAL_SetDeviceAddress(unsigned char address);
+
+/**
+ * \brief   Enable USB funtionality in the device 
+ **/
+void XUD_HAL_EnableUsb(unsigned pwrConfig);
+

@@ -7,25 +7,11 @@
 #ifndef XUD_SIM_XSIM
 
 #include <xs1.h>
-#include <print.h>
 
 #include "xud.h"
 #include "XUD_Support.h"
-#include "XUD_UIFM_Functions.h"
 #include "XUD_USB_Defines.h"
 #include "XUD_HAL.h"
-
-
-#ifdef __XS2A__
-#include "xs1_to_glx.h"
-#include "xs2_su_registers.h"
-#include "XUD_USBTile_Support.h"
-extern unsigned get_tile_id(tileref ref);
-extern tileref USB_TILE_REF;
-#endif
-
-
-void XUD_UIFM_PwrSigFlags();
 
 #define T_WTRSTFS_us        26 // 26us
 #ifndef T_WTRSTFS
@@ -249,11 +235,6 @@ int XUD_Suspend(XUD_PwrConfig pwrConfig)
 
         switch(currentLs)
         {
-            case XUD_LINESTATE_J:
-                /* Do nothing */
-                break;
-
-
             /* Reset signalliung */
             case XUD_LINESTATE_SE0:
 
@@ -281,11 +262,6 @@ int XUD_Suspend(XUD_PwrConfig pwrConfig)
 
                 switch(currentLs)
                 {
-                    /* J, unexpected, return to suspend.. */
-                    case XUD_LINESTATE_J:
-
-                        break;
-
                     /* SE0, end of resume */
                     case XUD_LINESTATE_SE0:
                         if (g_curSpeed == XUD_SPEED_HS)
@@ -297,7 +273,17 @@ int XUD_Suspend(XUD_PwrConfig pwrConfig)
                             return 0;
                         }
                         break;
+
+                    /* J, unexpected, return to suspend.. */
+                    case XUD_LINESTATE_J:
+                    default: 
+                        break;
                 }
+                break;
+                
+            case XUD_LINESTATE_J:
+            default:
+                /* Do nothing */
                 break;
         }
     }
