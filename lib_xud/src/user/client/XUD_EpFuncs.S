@@ -10,14 +10,10 @@
 .globl XUD_GetSetupData
 .type XUD_GetSetupData, @function
 .cc_top XUD_GetSetupData.func
+.issue_mode single
 .align 4
 XUD_GetSetupData:
-#if defined(__XS2A__) || defined(__XS3A__)
-.issue_mode single
-  ENTSP_lu6 4
-#else
-  entsp 4
-#endif
+    ENTSP_lu6   4
     stw         r4, sp[1]
     stw         r10, sp[2]
 
@@ -570,12 +566,10 @@ XUD_SetStallByAddr_OUT:
 
 /* R0: ep number */
 .cc_top XUD_ClearStallByAddr.func
+.issue_mode single
 .align 4
 XUD_ClearStallByAddr:
-#if defined(__XS2A__) || defined (__XS3A__)
-.issue_mode single
-  ENTSP_lu6 0
-#endif
+    ENTSP_lu6   0
     ldc         r2, USB_PIDn_NAK
     ldc         r11, 0x80                       // Check for IN bit
     and         r11, r11, r0
