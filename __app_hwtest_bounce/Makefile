@@ -23,10 +23,8 @@ APP_NAME = test
 # These flags define two build configurations - one for U-series and one for
 # the xCORE-200 series.
 
-COMMON_FLAGS = -O3 -report -g -DBOUNCECOUNT=$(BOUNCE_COUNT)
-
 XCC_FLAGS_MASTER  = -O2 -report -DBOUNCECOUNT=$(BOUNCE_COUNT) -DPRINTRESULT
-XCC_FLAGS_BOUNCER  = $(COMMON_FLAGS) -DBOUNCER
+XCC_FLAGS_BOUNCER  = -O2 -report -DBOUNCECOUNT=$(BOUNCE_COUNT) -DBOUNCER -mno-dual-issue
 
 # The USED_MODULES variable lists other module used by the application. 
 USED_MODULES = lib_xud

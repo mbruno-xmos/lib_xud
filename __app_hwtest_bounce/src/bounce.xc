@@ -43,7 +43,6 @@ int mytimer;
 int do_test(void) {
     timer tmr;
     unsigned t;
-  //printstrln("Started");
 
 #ifdef XKUSBAUDIO
     USB_SEL <: 0x60;
@@ -54,6 +53,10 @@ int do_test(void) {
     XUD_HAL_EnableUsb(XUD_PWR_BUS);
     
     XUD_HAL_EnterMode_PeripheralHighSpeed();
+    
+	clearbuf(p_usb_rxd);
+  
+	printstr("Bouncer started\n");
 
     int led_value = 1;    // All leds on
 
@@ -79,7 +82,6 @@ int do_test(void) {
         //leds <: led_value | 2; // Led 0 off on send
 #endif
 
-        printstr("GOT PKT\n");
         for(int i = 0; i < BOUNCECOUNT; i++)
         {
             tmr :> t;

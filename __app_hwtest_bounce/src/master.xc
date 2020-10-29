@@ -37,7 +37,7 @@ on stdcore[0]: port p4e = XS1_PORT_4E;
 
 static const unsigned poly = 0xEDB88320;
 
-extern int data[1258];
+int data[1258];
 int data_received[1258];
 
 #define PATTERN0 0xC3
