@@ -32,6 +32,7 @@ rcvPacketVarTimeout:
     add      r11, r11, r3
     setc     res[r2], XS1_SETC_COND_AFTER
     setd     res[r2], r11
+    clre
     setsr    1            // Enable events
     
 rcvLoop:    
