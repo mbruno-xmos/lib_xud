@@ -33,53 +33,17 @@
   #define USB_TILE tile[0]
 #endif
 
+#ifndef REF_CLK_FREQ
+#define REF_CLK_FREQ 100
+#endif
+
 #ifndef XUD_CORE_CLOCK
 #warning XUD_CORE_CLOCK not defined, using default (700MHz)
 #define XUD_CORE_CLOCK (700)
 #endif
 
-#if defined(PORT_USB_CLK)
-  /* Ports declared in the .xn file. Automatically detect device series */
-  #if defined(PORT_USB_RX_READY)
-    #if !defined(XUD_SERIES_SUPPORT)
-      #define XUD_SERIES_SUPPORT XUD_U_SERIES
-    #endif
-
-#if (XUD_SERIES_SUPPORT != XUD_U_SERIES) && (XUD_SERIES_SUPPORT != XUD_X200_SERIES)
-      #error (XUD_SERIES_SUPPORT != XUD_U_SERIES) with PORT_USB_RX_READY defined
-    #endif
-
-  #else
-    #if !defined(XUD_SERIES_SUPPORT)
-      #define XUD_SERIES_SUPPORT XUD_L_SERIES
-    #endif
-
-#if (XUD_SERIES_SUPPORT != XUD_L_SERIES) && (XUD_SERIES_SUPPORT != XUD_G_SERIES) && (XUD_SERIES_SUPPORT != XUD_X200_SERIES)
-      #error (XUD_SERIES_SUPPORT != XUD_L_SERIES) when PORT_USB_RX_READY not defined
-    #endif
-
-  #endif
-
-#else // PORT_USB_CLK
-
-  #if !defined(XUD_SERIES_SUPPORT)
-    // Default to U-Series if no series is defined
-    #define XUD_SERIES_SUPPORT XUD_U_SERIES
-  #endif
-
-  /* Ports have not been defined in the .xn file */
-  #if defined (__XS1B__) 
-#error
-    #define PORT_USB_CLK         on USB_TILE: XS1_PORT_1J
-    #define PORT_USB_TXD         on USB_TILE: XS1_PORT_8A
-    #define PORT_USB_RXD         on USB_TILE: XS1_PORT_8C
-    #define PORT_USB_TX_READYOUT on USB_TILE: XS1_PORT_1K
-    #define PORT_USB_TX_READYIN  on USB_TILE: XS1_PORT_1H
-    #define PORT_USB_RX_READY    on USB_TILE: XS1_PORT_1M
-    #define PORT_USB_FLAG0       on USB_TILE: XS1_PORT_1N
-    #define PORT_USB_FLAG1       on USB_TILE: XS1_PORT_1O
-    #define PORT_USB_FLAG2       on USB_TILE: XS1_PORT_1P
-  #else // __XS3A__ and __XS2A__
+#if !defined(PORT_USB_CLK)
+    /* Ports have not been defined in the .xn file */
     #define PORT_USB_CLK         on USB_TILE: XS1_PORT_1J
     #define PORT_USB_TXD         on USB_TILE: XS1_PORT_8A
     #define PORT_USB_RXD         on USB_TILE: XS1_PORT_8B
@@ -88,8 +52,10 @@
     #define PORT_USB_RX_READY    on USB_TILE: XS1_PORT_1I
     #define PORT_USB_FLAG0       on USB_TILE: XS1_PORT_1E
     #define PORT_USB_FLAG1       on USB_TILE: XS1_PORT_1F
-    #define PORT_USB_FLAG2       on USB_TILE: XS1_PORT_1G
-  #endif
+    #ifdef __XS2A__
+        /* XS2A has an additional flag port */
+        #define PORT_USB_FLAG2       on USB_TILE: XS1_PORT_1G
+    #endif
 #endif // PORT_USB_CLK
 
 /**
@@ -123,7 +89,8 @@ typedef unsigned int XUD_ep;
 typedef enum XUD_BusSpeed
 {
     XUD_SPEED_FS = 1,
-    XUD_SPEED_HS = 2
+    XUD_SPEED_HS = 2,
+    XUD_SPEED_KILL = 3
 } XUD_BusSpeed_t;
 
 typedef enum XUD_PwrConfig
@@ -288,10 +255,21 @@ XUD_Result_t XUD_SetDevAddr(/*tileref usbtile*/ unsigned addr);
  * \param   one      IN or OUT endpoint identifier to perform the reset on.
  * \param   two      Optional second IN or OUT endpoint structure to perform a reset on.
  * \return  Either ``XUD_SPEED_HS`` - the host has accepted that this device can execute
- *          at high speed, or ``XUD_SPEED_FS`` - the device is runnig at full speed.
+ *          at high speed, ``XUD_SPEED_FS`` - the device is runnig at full speed,
+ *          or ``XUD_SPEED_KILL`` to indicate that the USB stack has been shut down
+ *          by another part of the user code (using XUD_Kill). If the last value is
+ *          returned, the endpoint code should call XUD_CloseEndpoint and then
+ *          terminate.
  */
 XUD_BusSpeed_t XUD_ResetEndpoint(XUD_ep one, NULLABLE_REFERENCE_PARAM(XUD_ep, two));
 
+/**
+ * \brief   This function closes an endpoint. It should be called when the USB stack
+ *          is shutting down. It should be called on all endpoints, either in parallel
+ *          or in numerical order, first all OUT and then all IN endpoints
+ * \param   one      endpoint to close.
+ */
+void XUD_CloseEndpoint(XUD_ep one);
 
 /**
  * \brief      Initialises an XUD_ep

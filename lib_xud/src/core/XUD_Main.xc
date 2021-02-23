@@ -30,7 +30,6 @@ void XUD_Error_hex(char errString[], int i_err);
 #if (USB_MAX_NUM_EP_IN != 16)
 #error USB_MAX_NUM_EP_IN must be 16!
 #endif
-
 #if (USB_MAX_NUM_EP_OUT != 16)
 #error USB_MAX_NUM_EP_OUT must be 16!
 #endif
@@ -216,8 +215,8 @@ static int XUD_Manager_loop(XUD_chan epChans0[], XUD_chan epChans[],  chanend ?c
     // Xevious needed asm as non-standard usage (to avoid clogging 1-bit ports)
     // GLX uses 1bit ports so shouldn't be needed.
     // Handshaken ports need USB clock
-    configure_clock_src (tx_usb_clk, p_usb_clk);
-    configure_clock_src (rx_usb_clk, p_usb_clk);
+    configure_clock_src(tx_usb_clk, p_usb_clk);
+    configure_clock_src(rx_usb_clk, p_usb_clk);
 
     //this along with the following delays forces the clock
     //to the ports to be effectively controlled by the
@@ -251,6 +250,7 @@ static int XUD_Manager_loop(XUD_chan epChans0[], XUD_chan epChans[],  chanend ?c
  	configure_out_port_handshake(p_usb_txd, tx_readyin, tx_readyout, tx_usb_clk, 0);
   	configure_in_port_strobed_slave(p_usb_rxd, rx_rdy, rx_usb_clk);
 
+    /* Clock RxA port from USB clock - helps fall event */
     configure_in_port(flag1_port, rx_usb_clk);
 
     unsigned noExit = 1;
@@ -291,7 +291,7 @@ static int XUD_Manager_loop(XUD_chan epChans0[], XUD_chan epChans[],  chanend ?c
                 /* Go into full speed mode: XcvrSelect and Term Select (and suspend) high */
                 XUD_HAL_EnterMode_PeripheralFullSpeed();
 
-#if defined(XUD_SIM_XSIM) 
+#if defined(XUD_SIM_XSIM) || defined(XUD_BYPASS_CONNECT) 
                 reset = 1;
 #else
 
@@ -361,10 +361,8 @@ static int XUD_Manager_loop(XUD_chan epChans0[], XUD_chan epChans[],  chanend ?c
                         ep_info[USB_MAX_NUM_EP_OUT+i].pid = USB_PIDn_DATA0;
                     }
 
-#if !defined (XUD_SIM_XSIM)
-                    /* Set default device address */
+                    /* Set default device address - note, for normal operation this is 0, but can be other values for testing */
                     XUD_HAL_SetDeviceAddress(XUD_STARTUP_ADDRESS);
-#endif
 
 #ifdef XUD_BYPASS_RESET
     #if defined(XUD_TEST_SPEED_HS)
@@ -452,12 +450,12 @@ static void drain(chanend chans[], int n, int op, XUD_EpType epTypeTable[]) {
             switch(op) {
             case 0:
                 outct(chans[i], XS1_CT_END);
+                outuint(chans[i], XUD_SPEED_KILL);
                 break;
             case 1:
+                outct(chans[i], XS1_CT_END);
                 while (!testct(chans[i]))
                     inuchar(chans[i]);
-                break;
-            case 2:
                 chkct(chans[i], XS1_CT_END);
                 break;
             }
@@ -500,37 +498,40 @@ int XUD_Main(chanend c_ep_out[], int noEpOut,
     /* Populate arrays of channels and status flag tabes */
     for(int i = 0; i < noEpOut; i++)
     {
-      unsigned x;
-      epChans0[i] = XUD_Sup_GetResourceId(c_ep_out[i]);
+      if(epTypeTableOut[i] != XUD_EPTYPE_DIS)
+      {
+        unsigned x;
+        epChans0[i] = XUD_Sup_GetResourceId(c_ep_out[i]);
 
-      asm("ldaw %0, %1[%2]":"=r"(x):"r"(epChans),"r"(i));
-      ep_info[i].chan_array_ptr = x;
+        asm("ldaw %0, %1[%2]":"=r"(x):"r"(epChans),"r"(i));
+        ep_info[i].chan_array_ptr = x;
 
-      asm("mov %0, %1":"=r"(x):"r"(c_ep_out[i]));
-      ep_info[i].ep_xud_chanend = x;
+        asm("mov %0, %1":"=r"(x):"r"(c_ep_out[i]));
+        ep_info[i].ep_xud_chanend = x;
 
-	  asm("getd %0, res[%1]":"=r"(x):"r"(c_ep_out[i]));
-      ep_info[i].ep_client_chanend = x;
+        asm("getd %0, res[%1]":"=r"(x):"r"(c_ep_out[i]));
+        ep_info[i].ep_client_chanend = x;
 
-	  asm("ldaw %0, %1[%2]":"=r"(x):"r"(ep_info),"r"(i*sizeof(XUD_ep_info)/sizeof(unsigned)));
-      outuint(c_ep_out[i], x);
+        asm("ldaw %0, %1[%2]":"=r"(x):"r"(ep_info),"r"(i*sizeof(XUD_ep_info)/sizeof(unsigned)));
+        outuint(c_ep_out[i], x);
 
-      epStatFlagTableOut[i] = epTypeTableOut[i] & XUD_STATUS_ENABLE;
-      epTypeTableOut[i] = epTypeTableOut[i] & 0x7FFFFFFF;
+        epStatFlagTableOut[i] = epTypeTableOut[i] & XUD_STATUS_ENABLE;
+        epTypeTableOut[i] = epTypeTableOut[i] & 0x7FFFFFFF;
 
-      ep_info[i].epType = epTypeTableOut[i];
+        ep_info[i].epType = epTypeTableOut[i];
 
 #ifdef __XS3A__
-      ep_info[i].pid = USB_PIDn_DATA0;
+        ep_info[i].pid = USB_PIDn_DATA0;
 #else
-      ep_info[i].pid = USB_PID_DATA0;
+        ep_info[i].pid = USB_PID_DATA0;
 #endif
-     // ep_info[i].epAddress = i;
-
+      }
     }
 
     for(int i = 0; i< noEpIn; i++)
     {
+      if(epTypeTableIn[i] != XUD_EPTYPE_DIS)
+      {
         int x;
         epChans0[i+USB_MAX_NUM_EP_OUT] = XUD_Sup_GetResourceId(c_ep_in[i]);
 
@@ -540,10 +541,10 @@ int XUD_Main(chanend c_ep_out[], int noEpOut,
         asm("mov %0, %1":"=r"(x):"r"(c_ep_in[i]));
         ep_info[USB_MAX_NUM_EP_OUT+i].ep_xud_chanend = x;
 
-	    asm("getd %0, res[%1]":"=r"(x):"r"(c_ep_in[i]));
+        asm("getd %0, res[%1]":"=r"(x):"r"(c_ep_in[i]));
         ep_info[USB_MAX_NUM_EP_OUT+i].ep_client_chanend = x;
 
-	    asm("ldaw %0, %1[%2]":"=r"(x):"r"(ep_info),"r"((USB_MAX_NUM_EP_OUT+i)*sizeof(XUD_ep_info)/sizeof(unsigned)));
+        asm("ldaw %0, %1[%2]":"=r"(x):"r"(ep_info),"r"((USB_MAX_NUM_EP_OUT+i)*sizeof(XUD_ep_info)/sizeof(unsigned)));
 
         outuint(c_ep_in[i], x);
 
@@ -553,9 +554,7 @@ int XUD_Main(chanend c_ep_out[], int noEpOut,
         epTypeTableIn[i] = epTypeTableIn[i] & 0x7FFFFFFF;
 
         ep_info[USB_MAX_NUM_EP_OUT+i].epType = epTypeTableIn[i];
-
-        //ep_info[USB_MAX_NUM_EP_OUT+i].epAddress = 0x80; // OR in the IN bit
-
+      }
     }
 
     /* EpTypeTable Checks.  Note, currently this is not too crucial since we only really care if the EP is ISO or not */
@@ -567,7 +566,6 @@ int XUD_Main(chanend c_ep_out[], int noEpOut,
     }
 
 #if 0
-
     /* Check that if the required channel has a destination if the EP is marked as in use */
     for( int i = 0; i < noEpOut + noEpIn; i++ )
     {
@@ -586,13 +584,12 @@ int XUD_Main(chanend c_ep_out[], int noEpOut,
     XUD_Manager_loop(epChans0, epChans, c_sof, epTypeTableOut, epTypeTableIn, noEpOut, noEpIn, pwrConfig);
 
     // Need to close, drain, and check - three stages.
-    for(int i = 0; i < 3; i++)
+    for(int i = 0; i < 2; i++)
     {
         drain(c_ep_out, noEpOut, i, epTypeTableOut);  // On all inputs
         drain(c_ep_in, noEpIn, i, epTypeTableIn);     // On all output
     }
 
-    /* Don't hit */
     return 0;
 }
 
