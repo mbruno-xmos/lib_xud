@@ -9,6 +9,22 @@ lib_xud Change Log
   * CHANGE:     Removed support for XS1-G, and XS1-L (including U series) based devices
   * RESOLVED:   Exception when Endpoint marked as disabled
   
+1.1.2
+-----
+
+  * CHANGE:     Python package versions pinned
+
+1.1.1
+-----
+
+  * RESOLVED:   Cases where disabling RxError caused firmware to crash
+  * RESOLVED:   USB Disconnect on self-powered devices intermittently causing EP
+    set to not-ready indefinitely
+
+1.1.0
+-----
+
+  * RESOLVED:   Disabled erroneous handling of Rx Error line
 
 1.0.0
 -----
