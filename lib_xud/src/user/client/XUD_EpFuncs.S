@@ -1,12 +1,30 @@
-// Copyright (c) 2011-2019, XMOS Ltd, All rights reserved
+// Copyright (c) 2011-2021, XMOS Ltd, All rights reserved
+
 /** XUD_EpFuncs.S
-  * @brief     Functions for data transfer to/from XUD
+  * @brief     ASM functions for data transfer to/from XUD
   * @author    Ross Owen, XMOS Limited
   */
 #include "XUD_USB_Defines.h"
 
+#if !defined __XS2A__
+.set too_many_cores, main.maxcores > 6
+.assert 0, too_many_cores, "Warning: More than 6 cores used on a tile. Ensure this is not the case on tile running XUD."
+#endif
+
+.section	.cp.rodata,"ac", @progbits
+.cc_top ep_info_address.data,ep_info_address
+.align	4
+.type	ep_info_address,@object
+.size	ep_info_address, 4
+ep_info_address:
+.long	ep_info
+.cc_bottom ep_info_address.data
+
+
+
 //int XUD_GetSetupData(XUD_ep e_out, unsigned buffer[], unsigned &length);
 //                     r0            r1                 r2
+.text
 .globl XUD_GetSetupData
 .type XUD_GetSetupData, @function
 .cc_top XUD_GetSetupData.func
@@ -597,7 +615,7 @@ XUD_ClearStallByAddr_ResetDataPid:              // Reset DATA PID to DATA0
 
     ldc         r2, 40                          // Size of XUD_ep_info struct TODO use sizeof() -
     mul         r0, r0, r2                      // Be careful with packing
-    ldaw        r2, dp[ep_info]
+    ldw         r2, cp[ep_info_address]
     add         r0, r2, r0
     stw         r1, r0[4]
 
@@ -654,7 +672,7 @@ XUD_ResetEpStateByAddr_:
 NoOffset:
     ldc         r2, 40                          // Size of XUD_ep_info struct TODO. FIXME!
     mul         r0, r0, r2
-    ldaw        r2, dp[ep_info]
+    ldw         r2, cp[ep_info_address]
     add         r0, r2, r0
     stw         r1, r0[4]
     retsp       0
