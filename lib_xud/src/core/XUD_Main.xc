@@ -90,6 +90,11 @@ typedef struct XUD_ep_info
 
 XUD_ep_info ep_info[USB_MAX_NUM_EP];
 
+char [[aligned(4)]] xud_tmp_setup_buffer[64];
+char [[aligned(4)]] xud_setup_buffer[8];
+XUD_ep_info dummy_setup_ep_info;
+int xud_app_ready_for_setup = 0;
+
 /* Tables storing if EP's are signed up to bus state updates */
 int epStatFlagTableIn[USB_MAX_NUM_EP_IN];
 int epStatFlagTableOut[USB_MAX_NUM_EP_OUT];
